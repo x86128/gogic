@@ -42,7 +42,7 @@ func NotFunc(in []bool) (out []bool) {
 
 func OrFunc(in []bool) (out []bool) {
 	res := in[0]
-	for _, v := range in {
+	for _, v := range in[1:] {
 		res = res || v
 	}
 	return []bool{res}
