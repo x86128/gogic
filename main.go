@@ -165,7 +165,7 @@ func setSignal(wire int, nextState int) {
 	}
 }
 
-var trace bool = false
+var trace bool = true
 
 var vcdDump bool = true
 var vcdFileName string = "output.vcd"
@@ -264,6 +264,7 @@ func main() {
 	signalQueue = map[int]bool{}
 	gateQueue = map[int]bool{}
 
+	// main loop
 	for tick = 0; tick < 10; tick++ {
 		// generators section
 		if tick == 0 {
