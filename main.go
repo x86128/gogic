@@ -16,95 +16,80 @@ const (
 type Wire struct {
 	Name    string
 	State   int
-	Outputs map[int]bool // set of connected gate ids
+	Outputs []int // connected gate list
 }
 
 // Gate element of gate table
 type Gate struct {
 	Name    string
 	State   int
-	Func    func(map[int]bool) int
-	Inputs  map[int]bool // ids of input wires
-	Outputs map[int]bool // ids of output wires
+	Func    func([]int) int
+	Inputs  []int // ids of input wires
+	Outputs []int // ids of output wires
 }
 
-var wireTable map[int]*Wire
+var wireTable []Wire
 
 func newWire(name string) (id int) {
 	id = len(wireTable)
-	wireTable[id] = &Wire{
+	wireTable = append(wireTable, Wire{
 		Name:    name,
 		State:   stUndefined,
-		Outputs: make(map[int]bool)}
+		Outputs: []int{}})
 	return id
 }
 
 // TrFunc gate transmission function
-type TrFunc func(map[int]bool) int
+type TrFunc func([]int) int
 
-func AndFunc(in map[int]bool) (out int) {
-	out = -1
-	for i := range in {
-		if out < 0 {
-			out = wireTable[i].State
-		} else {
-			out &= wireTable[i].State
-		}
+func AndFunc(in []int) (out int) {
+	out = wireTable[in[0]].State
+	for i := range in[1:] {
+		out &= wireTable[i].State
 	}
 	return out
 }
 
-func NotFunc(in map[int]bool) (out int) {
-	for i := range in {
-		out = wireTable[i].State
-		if out == stFalse {
-			return stTrue
-		} else if out == stTrue {
-			return stFalse
-		}
+func NotFunc(in []int) (out int) {
+	out = wireTable[in[0]].State
+	if out == stFalse {
+		return stTrue
+	} else if out == stTrue {
+		return stFalse
 	}
 	return out
 }
 
-var gateTable map[int]*Gate
+var gateTable []Gate
 
 func newGate(name string, trfunc TrFunc) (id int) {
 	id = len(gateTable)
-	gateTable[id] = &Gate{
+	gateTable = append(gateTable, Gate{
 		Name:    name,
 		State:   stUndefined,
 		Func:    trfunc,
-		Inputs:  make(map[int]bool),
-		Outputs: make(map[int]bool)}
+		Inputs:  []int{},
+		Outputs: []int{}})
 	return id
 }
 
 // Attach gate input/outputs to wires
-func attach(gate int, inputs []int, outputs []int) {
-	g := gateTable[gate]
-	for i := range inputs {
-		g.Inputs[inputs[i]] = true
-		wireTable[inputs[i]].Outputs[gate] = true
-	}
-	for i := range outputs {
-		g.Outputs[outputs[i]] = true
+func attach(g int, inputs []int, outputs []int) {
+	gateTable[g].Inputs = inputs
+	gateTable[g].Outputs = outputs
+	// for each input wire W add this gate to output fanout list
+	for _, w := range inputs {
+		found := false
+		for j := range wireTable[w].Outputs {
+			if wireTable[w].Outputs[j] == w {
+				found = true
+			}
+		}
+		if !found {
+			wireTable[w].Outputs = append(wireTable[w].Outputs, g)
+		}
 	}
 }
-
-// func BufferFunc(in []bool) (out []bool) {
-// 	for _, v := range in {
-// 		out = append(out, v)
-// 	}
-// 	return out
-// }
-
-// func OrFunc(in []bool) (out []bool) {
-// 	res := in[0]
-// 	for _, v := range in[1:] {
-// 		res = res || v
-// 	}
-// 	return []bool{res}
-// }
 
 func stToS(st int) string {
 	stateStrings := []string{"F", "I", "X", "T"}
@@ -113,12 +98,12 @@ func stToS(st int) string {
 
 func dumpWires() {
 	fmt.Println("Wire table:")
-	for k := range wireTable {
-		fmt.Printf("id: %d name: %s state: %s", k, wireTable[k].Name, stToS(wireTable[k].State))
-		if len(wireTable[k].Outputs) > 0 {
-			fmt.Printf("\n  connected to:")
-			for i := range wireTable[k].Outputs {
-				fmt.Printf(" %s", gateTable[i].Name)
+	for i, w := range wireTable {
+		fmt.Printf("id: %d name: %s state: %s\n", i, w.Name, stToS(w.State))
+		if len(w.Outputs) > 0 {
+			fmt.Printf("  connected to:")
+			for _, g := range w.Outputs {
+				fmt.Printf(" %s", gateTable[g].Name)
 			}
 			fmt.Println()
 		}
@@ -127,20 +112,20 @@ func dumpWires() {
 }
 
 func dumpGates() {
-	fmt.Println("\nGate table:")
-	for k := range gateTable {
-		fmt.Printf("id: %d name: %s\n", k, gateTable[k].Name)
-		if len(gateTable[k].Inputs) > 0 {
+	fmt.Println("Gate table:")
+	for i, g := range gateTable {
+		fmt.Printf("id: %d name: %s\n", i, g.Name)
+		if len(g.Inputs) > 0 {
 			fmt.Printf("  inputs:")
-			for i := range gateTable[k].Inputs {
-				fmt.Printf(" %s", wireTable[i].Name)
+			for _, w := range g.Inputs {
+				fmt.Printf(" %s", wireTable[w].Name)
 			}
 			fmt.Println()
 		}
-		if len(gateTable[k].Outputs) > 0 {
+		if len(g.Outputs) > 0 {
 			fmt.Printf("  outputs:")
-			for i := range gateTable[k].Outputs {
-				fmt.Printf(" %s", wireTable[i].Name)
+			for _, w := range g.Outputs {
+				fmt.Printf(" %s", wireTable[w].Name)
 			}
 			fmt.Println()
 		}
@@ -163,9 +148,8 @@ func setSignal(wire int, nextState int) {
 }
 
 func main() {
-
-	wireTable = make(map[int]*Wire)
-	gateTable = make(map[int]*Gate)
+	wireTable = []Wire{}
+	gateTable = []Gate{}
 
 	A := newWire("A")
 	B := newWire("B")
@@ -190,19 +174,24 @@ func main() {
 		if tick == 0 {
 			setSignal(A, stTrue)
 			setSignal(D, stTrue)
+			fmt.Println()
 		} else if tick == 1 {
 			setSignal(B, stTrue)
+			fmt.Println()
 		} else if tick == 2 {
 			setSignal(A, stFalse)
+			fmt.Println()
 		}
 
 		// form gate queue
 		gateQueue = map[int]bool{}
-		for i := range signalQueue {
-			for g := range wireTable[i].Outputs {
+		for w := range signalQueue {
+			for _, g := range wireTable[w].Outputs {
 				gateQueue[g] = true
-				fmt.Printf("tick: %d gate: %s touched by %s\n", tick, gateTable[g].Name, wireTable[i].Name)
+				fmt.Printf("tick: %d gate: %s touched by %s\n", tick, gateTable[g].Name, wireTable[w].Name)
 			}
+		}
+		if len(signalQueue) > 0 {
 			fmt.Println()
 		}
 
@@ -212,11 +201,13 @@ func main() {
 			nextState := gateTable[g].Func(gateTable[g].Inputs)
 			if gateTable[g].State != nextState {
 				fmt.Printf("tick: %d gate: %s changed to: %s\n", tick, gateTable[g].Name, stToS(nextState))
-				for i := range gateTable[g].Outputs {
-					setSignal(i, nextState)
+				for _, w := range gateTable[g].Outputs {
+					setSignal(w, nextState)
 				}
 			}
 			gateTable[g].State = nextState
+		}
+		if len(gateQueue) > 0 {
 			fmt.Println()
 		}
 	}
