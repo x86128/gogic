@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
 )
 
 // Signal states
@@ -143,7 +147,33 @@ func setSignal(wire int, nextState int) {
 		// changed
 		signalQueue[wire] = true
 		wireTable[wire].State = nextState
-		fmt.Printf("tick: %d signal: %s changed to: %s\n", tick, wireTable[wire].Name, stToS(wireTable[wire].State))
+		if trace {
+			fmt.Printf("tick: %d signal: %s changed to: %s\n", tick, wireTable[wire].Name, stToS(wireTable[wire].State))
+		}
+	}
+}
+
+var trace bool = false
+var vcdDump bool = true
+var vcdFileName string = "output.vcd"
+var vcdOutFile *os.File
+
+func printVCDHeader(out io.Writer) {
+	fmt.Fprintln(out, "$date\n  ", time.Now().String(), "\n$end")
+	fmt.Fprintln(out, "$version\n  Gogic logic simulator\n$end")
+	fmt.Fprintln(out, "$timescale 1ns $end")
+	fmt.Fprintln(out, "$scope module top $end")
+	for _, w := range wireTable {
+		fmt.Fprintf(out, "$var wire 1 w%s %s $end\n", w.Name, w.Name)
+	}
+	fmt.Fprintln(out, "$upscope $end\n$enddefinitions $end\n$dumpvars")
+}
+
+func vcdDumpVars(out io.Writer, tick int, sq map[int]bool) {
+	sTov := []string{"0", "i", "x", "1"}
+	fmt.Fprintf(out, "#%d\n", tick)
+	for w := range sq {
+		fmt.Fprintf(out, "%sw%s\n", sTov[wireTable[w].State], wireTable[w].Name)
 	}
 }
 
@@ -164,23 +194,46 @@ func main() {
 	attach(G1, []int{A, B}, []int{C})
 	attach(G2, []int{D}, []int{D})
 
-	dumpWires()
-	dumpGates()
+	if trace {
+		dumpWires()
+		dumpGates()
+	}
+
+	if vcdDump {
+		var err error
+		vcdOutFile, err = os.OpenFile(vcdFileName, os.O_CREATE|os.O_RDWR, 0644)
+		defer vcdOutFile.Close()
+		if err != nil {
+			log.Fatalln("Cannot create vcd file:", vcdFileName, "err:", err)
+		}
+		printVCDHeader(vcdOutFile)
+	}
 
 	signalQueue = map[int]bool{}
 	gateQueue = map[int]bool{}
 
 	for tick = 0; tick < 10; tick++ {
+		// generators section
 		if tick == 0 {
 			setSignal(A, stTrue)
 			setSignal(D, stTrue)
-			fmt.Println()
+			if trace {
+				fmt.Println()
+			}
 		} else if tick == 1 {
 			setSignal(B, stTrue)
-			fmt.Println()
+			if trace {
+				fmt.Println()
+			}
 		} else if tick == 2 {
 			setSignal(A, stFalse)
-			fmt.Println()
+			if trace {
+				fmt.Println()
+			}
+		}
+		// dump vars to vcd
+		if vcdDump {
+			vcdDumpVars(vcdOutFile, tick, signalQueue)
 		}
 
 		// form gate queue
@@ -188,27 +241,35 @@ func main() {
 		for w := range signalQueue {
 			for _, g := range wireTable[w].Outputs {
 				gateQueue[g] = true
-				fmt.Printf("tick: %d gate: %s touched by %s\n", tick, gateTable[g].Name, wireTable[w].Name)
+				if trace {
+					fmt.Printf("tick: %d gate: %s touched by %s\n", tick, gateTable[g].Name, wireTable[w].Name)
+				}
 			}
 		}
-		if len(signalQueue) > 0 {
-			fmt.Println()
+		if trace {
+			if len(signalQueue) > 0 {
+				fmt.Println()
+			}
 		}
 
-		// simulating gates
+		// simulating gates and form signals queue
 		signalQueue = map[int]bool{}
 		for g := range gateQueue {
 			nextState := gateTable[g].Func(gateTable[g].Inputs)
 			if gateTable[g].State != nextState {
-				fmt.Printf("tick: %d gate: %s changed to: %s\n", tick, gateTable[g].Name, stToS(nextState))
+				if trace {
+					fmt.Printf("tick: %d gate: %s changed to: %s\n", tick, gateTable[g].Name, stToS(nextState))
+				}
 				for _, w := range gateTable[g].Outputs {
 					setSignal(w, nextState)
 				}
 			}
 			gateTable[g].State = nextState
 		}
-		if len(gateQueue) > 0 {
-			fmt.Println()
+		if trace {
+			if len(gateQueue) > 0 {
+				fmt.Println()
+			}
 		}
 	}
 }
