@@ -20,6 +20,7 @@ const (
 type Wire struct {
 	Name    string
 	State   int
+	Inputs  []int // connected gate list
 	Outputs []int // connected gate list
 }
 
@@ -93,6 +94,17 @@ func attach(g int, inputs []int, outputs []int) {
 			wireTable[w].Outputs = append(wireTable[w].Outputs, g)
 		}
 	}
+	for _, w := range outputs {
+		found := false
+		for j := range wireTable[w].Inputs {
+			if wireTable[w].Inputs[j] == w {
+				found = true
+			}
+		}
+		if !found {
+			wireTable[w].Inputs = append(wireTable[w].Inputs, g)
+		}
+	}
 }
 
 func stToS(st int) string {
@@ -154,9 +166,45 @@ func setSignal(wire int, nextState int) {
 }
 
 var trace bool = false
+
 var vcdDump bool = true
 var vcdFileName string = "output.vcd"
 var vcdOutFile *os.File
+
+var dotDump bool = true
+var dotFileName string = "schematic.dot"
+
+func dumpDot() {
+	out, err := os.OpenFile(dotFileName, os.O_CREATE|os.O_RDWR, 0644)
+	defer out.Close()
+	if err != nil {
+		log.Fatalln("Cannot create dot file:", dotFileName, "err:", err)
+	}
+
+	fmt.Fprintln(out, "digraph top {\nrankdir=\"LR\"")
+	for _, g := range gateTable {
+
+		for _, w := range g.Inputs {
+			fmt.Fprintf(out, "%s -> %s;\n", wireTable[w].Name, g.Name)
+		}
+		for _, w := range g.Outputs {
+			fmt.Fprintf(out, "%s -> %s;\n", g.Name, wireTable[w].Name)
+		}
+		fmt.Fprintf(out, "%s [shape=box];\n", g.Name)
+	}
+
+	for _, w := range wireTable {
+		if len(w.Inputs) == 0 {
+			fmt.Fprintf(out, "%s [shape=circle];\n", w.Name)
+		} else if len(w.Outputs) == 0 {
+			fmt.Fprintf(out, "%s [shape=doublecircle];\n", w.Name)
+		} else {
+			fmt.Fprintf(out, "%s [shape=octagon];\n", w.Name)
+		}
+	}
+
+	fmt.Fprintln(out, "}")
+}
 
 func printVCDHeader(out io.Writer) {
 	fmt.Fprintln(out, "$date\n  ", time.Now().String(), "\n$end")
@@ -207,6 +255,10 @@ func main() {
 			log.Fatalln("Cannot create vcd file:", vcdFileName, "err:", err)
 		}
 		printVCDHeader(vcdOutFile)
+	}
+
+	if dotDump {
+		dumpDot()
 	}
 
 	signalQueue = map[int]bool{}
