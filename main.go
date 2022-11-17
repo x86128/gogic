@@ -24,6 +24,9 @@ type Wire struct {
 	Outputs []int // connected gate list
 }
 
+// Table storing all wires
+var wireTable []Wire
+
 // Gate element of gate table
 type Gate struct {
 	Name    string
@@ -33,7 +36,8 @@ type Gate struct {
 	Outputs []int // ids of output wires
 }
 
-var wireTable []Wire
+// Table storing all gates
+var gateTable []Gate
 
 func newWire(name string) (id int) {
 	id = len(wireTable)
@@ -47,6 +51,7 @@ func newWire(name string) (id int) {
 // TrFunc gate transmission function
 type TrFunc func([]int) int
 
+// AND transmission function
 func AndFunc(in []int) (out int) {
 	out = wireTable[in[0]].State
 	for i := range in[1:] {
@@ -55,6 +60,22 @@ func AndFunc(in []int) (out int) {
 	return out
 }
 
+// OR transmission function
+func OrFunc(in []int) (out int) {
+	out = wireTable[in[0]].State
+	for i := range in[1:] {
+		out |= wireTable[i].State
+	}
+	return out
+}
+
+// Buffer adds delay to signal
+func BufFunc(in []int) (out int) {
+	out = wireTable[in[0]].State
+	return out
+}
+
+// NOT transmission function
 func NotFunc(in []int) (out int) {
 	out = wireTable[in[0]].State
 	if out == stFalse {
@@ -64,8 +85,6 @@ func NotFunc(in []int) (out int) {
 	}
 	return out
 }
-
-var gateTable []Gate
 
 func newGate(name string, trfunc TrFunc) (id int) {
 	id = len(gateTable)
@@ -225,22 +244,40 @@ func vcdDumpVars(out io.Writer, tick int, sq map[int]bool) {
 	}
 }
 
+// XOR element: c = a XOR b
+func newXOR(a, b, c int) {
+	t1 := newWire("t1")
+	t2 := newWire("t2")
+	t3 := newWire("t3")
+	t4 := newWire("t4")
+
+	not1 := newGate("not1", NotFunc)
+	not2 := newGate("not2", NotFunc)
+
+	and1 := newGate("and1", AndFunc)
+	and2 := newGate("and2", AndFunc)
+
+	or1 := newGate("or1", OrFunc)
+
+	attach(not1, []int{a}, []int{t1})
+	attach(not2, []int{b}, []int{t2})
+
+	attach(and1, []int{a, t1}, []int{t3})
+	attach(and2, []int{b, t2}, []int{t4})
+
+	attach(or1, []int{t3, t4}, []int{c})
+}
+
 func main() {
 	wireTable = []Wire{}
 	gateTable = []Gate{}
 
 	A := newWire("A")
 	B := newWire("B")
-	C := newWire("C")
 
-	D := newWire("D")
+	E := newWire("E")
 
-	G1 := newGate("AND0", AndFunc)
-
-	G2 := newGate("NOT0", NotFunc)
-
-	attach(G1, []int{A, B}, []int{C})
-	attach(G2, []int{D}, []int{D})
+	newXOR(A, B, E)
 
 	if trace {
 		dumpWires()
@@ -269,7 +306,7 @@ func main() {
 		// generators section
 		if tick == 0 {
 			setSignal(A, stTrue)
-			setSignal(D, stTrue)
+			//setSignal(D, stTrue)
 			if trace {
 				fmt.Println()
 			}
