@@ -41,6 +41,9 @@ var gateTable []Gate
 
 func newWire(name string) (id int) {
 	id = len(wireTable)
+	if len(name) == 0 {
+		name = fmt.Sprintf("_t%d", id)
+	}
 	wireTable = append(wireTable, Wire{
 		Name:    name,
 		State:   stUndefined,
@@ -88,8 +91,11 @@ func NotFunc(in []int) (out int) {
 
 func newGate(name string, trfunc TrFunc) (id int) {
 	id = len(gateTable)
+	if len(name) == 0 {
+		name = "_g"
+	}
 	gateTable = append(gateTable, Gate{
-		Name:    name,
+		Name:    fmt.Sprintf("%s%d", name, id),
 		State:   stUndefined,
 		Func:    trfunc,
 		Inputs:  []int{},
@@ -105,7 +111,7 @@ func attach(g int, inputs []int, outputs []int) {
 	for _, w := range inputs {
 		found := false
 		for j := range wireTable[w].Outputs {
-			if wireTable[w].Outputs[j] == w {
+			if wireTable[w].Outputs[j] == g {
 				found = true
 			}
 		}
@@ -116,7 +122,7 @@ func attach(g int, inputs []int, outputs []int) {
 	for _, w := range outputs {
 		found := false
 		for j := range wireTable[w].Inputs {
-			if wireTable[w].Inputs[j] == w {
+			if wireTable[w].Inputs[j] == g {
 				found = true
 			}
 		}
@@ -246,18 +252,18 @@ func vcdDumpVars(out io.Writer, tick int, sq map[int]bool) {
 
 // XOR element: c = a XOR b
 func newXOR(a, b, c int) {
-	t1 := newWire("t1")
-	t2 := newWire("t2")
-	t3 := newWire("t3")
-	t4 := newWire("t4")
+	t1 := newWire("")
+	t2 := newWire("")
+	t3 := newWire("")
+	t4 := newWire("")
 
-	not1 := newGate("not1", NotFunc)
-	not2 := newGate("not2", NotFunc)
+	not1 := newGate("not", NotFunc)
+	not2 := newGate("not", NotFunc)
 
-	and1 := newGate("and1", AndFunc)
-	and2 := newGate("and2", AndFunc)
+	and1 := newGate("and", AndFunc)
+	and2 := newGate("and", AndFunc)
 
-	or1 := newGate("or1", OrFunc)
+	or1 := newGate("or", OrFunc)
 
 	attach(not1, []int{a}, []int{t1})
 	attach(not2, []int{b}, []int{t2})
@@ -268,6 +274,13 @@ func newXOR(a, b, c int) {
 	attach(or1, []int{t3, t4}, []int{c})
 }
 
+// Half summator A+B -> SUM, CARRY
+func newHalfSum(a, b, sum, carry int) {
+	newXOR(a, b, sum)
+	and := newGate("and", AndFunc)
+	attach(and, []int{a, b}, []int{carry})
+}
+
 func main() {
 	wireTable = []Wire{}
 	gateTable = []Gate{}
@@ -275,9 +288,10 @@ func main() {
 	A := newWire("A")
 	B := newWire("B")
 
-	C := newWire("C")
+	S := newWire("SUM")
+	C := newWire("CARRY")
 
-	newXOR(A, B, C)
+	newHalfSum(A, B, S, C)
 
 	if trace {
 		dumpWires()
@@ -306,12 +320,7 @@ func main() {
 		// generators section
 		if tick == 0 {
 			setSignal(A, stTrue)
-			//setSignal(D, stTrue)
-			if trace {
-				fmt.Println()
-			}
-		} else if tick == 1 {
-			setSignal(B, stTrue)
+			setSignal(B, stFalse)
 			if trace {
 				fmt.Println()
 			}
