@@ -54,7 +54,7 @@ type TrFunc func([]int) int
 // AND transmission function
 func AndFunc(in []int) (out int) {
 	out = wireTable[in[0]].State
-	for i := range in[1:] {
+	for _, i := range in[1:] {
 		out &= wireTable[i].State
 	}
 	return out
@@ -63,7 +63,7 @@ func AndFunc(in []int) (out int) {
 // OR transmission function
 func OrFunc(in []int) (out int) {
 	out = wireTable[in[0]].State
-	for i := range in[1:] {
+	for _, i := range in[1:] {
 		out |= wireTable[i].State
 	}
 	return out
@@ -262,8 +262,8 @@ func newXOR(a, b, c int) {
 	attach(not1, []int{a}, []int{t1})
 	attach(not2, []int{b}, []int{t2})
 
-	attach(and1, []int{a, t1}, []int{t3})
-	attach(and2, []int{b, t2}, []int{t4})
+	attach(and1, []int{b, t1}, []int{t3})
+	attach(and2, []int{a, t2}, []int{t4})
 
 	attach(or1, []int{t3, t4}, []int{c})
 }
@@ -275,9 +275,9 @@ func main() {
 	A := newWire("A")
 	B := newWire("B")
 
-	E := newWire("E")
+	C := newWire("C")
 
-	newXOR(A, B, E)
+	newXOR(A, B, C)
 
 	if trace {
 		dumpWires()
@@ -317,6 +317,11 @@ func main() {
 			}
 		} else if tick == 2 {
 			setSignal(A, stFalse)
+			if trace {
+				fmt.Println()
+			}
+		} else if tick == 5 {
+			setSignal(A, stTrue)
 			if trace {
 				fmt.Println()
 			}
