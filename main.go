@@ -250,6 +250,23 @@ func vcdDumpVars(out io.Writer, tick int, sq map[int]bool) {
 	}
 }
 
+func newMUX2(a, d0, d1, y int) {
+	t1 := newWire("")
+	t2 := newWire("")
+	t3 := newWire("")
+
+	not := newGate("not", NotFunc)
+	and1 := newGate("and", AndFunc)
+	and2 := newGate("and", AndFunc)
+	or := newGate("or", OrFunc)
+
+	attach(not, []int{a}, []int{t1})
+	attach(and1, []int{d0, t1}, []int{t2})
+	attach(and2, []int{d1, a}, []int{t3})
+
+	attach(or, []int{t2, t3}, []int{y})
+}
+
 // XOR element: c = a XOR b
 func newXOR(a, b, c int) {
 	t1 := newWire("")
@@ -303,13 +320,12 @@ func main() {
 	gateTable = []Gate{}
 
 	A := newWire("A")
-	B := newWire("B")
+	D0 := newWire("D0")
+	D1 := newWire("D1")
 
-	Cin := newWire("Cin")
-	S := newWire("SUM")
-	Cout := newWire("Cout")
+	Y := newWire("Y")
 
-	newFullAdder(A, B, Cin, S, Cout)
+	newMUX2(A, D0, D1, Y)
 
 	if trace {
 		dumpWires()
@@ -337,18 +353,18 @@ func main() {
 	for tick = 0; tick < 20; tick++ {
 		// generators section
 		if tick == 0 {
-			setSignal(A, stTrue)
-			setSignal(B, stFalse)
-			setSignal(Cin, stFalse)
-			if trace {
-				fmt.Println()
-			}
-		} else if tick == 2 {
 			setSignal(A, stFalse)
+			setSignal(D0, stFalse)
+			setSignal(D1, stFalse)
 			if trace {
 				fmt.Println()
 			}
-		} else if tick == 5 {
+		} else if tick == 3 {
+			setSignal(D0, stTrue)
+			if trace {
+				fmt.Println()
+			}
+		} else if tick == 6 {
 			setSignal(A, stTrue)
 			if trace {
 				fmt.Println()
