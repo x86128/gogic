@@ -281,6 +281,23 @@ func newHalfSum(a, b, sum, carry int) {
 	attach(and, []int{a, b}, []int{carry})
 }
 
+func newFullAdder(a, b int, ci, sum, co int) {
+	t1 := newWire("")
+	newXOR(a, b, t1)
+	newXOR(ci, t1, sum)
+	and1 := newGate("and", AndFunc)
+
+	t2 := newWire("")
+	attach(and1, []int{a, b}, []int{t2})
+
+	t3 := newWire("")
+	and2 := newGate("and", AndFunc)
+	attach(and2, []int{ci, t1}, []int{t3})
+
+	or := newGate("or", OrFunc)
+	attach(or, []int{t2, t3}, []int{co})
+}
+
 func main() {
 	wireTable = []Wire{}
 	gateTable = []Gate{}
@@ -288,10 +305,11 @@ func main() {
 	A := newWire("A")
 	B := newWire("B")
 
+	Cin := newWire("Cin")
 	S := newWire("SUM")
-	C := newWire("CARRY")
+	Cout := newWire("Cout")
 
-	newHalfSum(A, B, S, C)
+	newFullAdder(A, B, Cin, S, Cout)
 
 	if trace {
 		dumpWires()
@@ -316,11 +334,12 @@ func main() {
 	gateQueue = map[int]bool{}
 
 	// main loop
-	for tick = 0; tick < 10; tick++ {
+	for tick = 0; tick < 20; tick++ {
 		// generators section
 		if tick == 0 {
 			setSignal(A, stTrue)
 			setSignal(B, stFalse)
+			setSignal(Cin, stFalse)
 			if trace {
 				fmt.Println()
 			}
