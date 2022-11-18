@@ -89,17 +89,16 @@ func NotFunc(in []int) (out int) {
 	return out
 }
 
-func newGate(name string, trfunc TrFunc) (id int) {
+func newGate(name string, trfunc TrFunc, inputs []int, outputs []int) (id int) {
 	id = len(gateTable)
 	if len(name) == 0 {
 		name = "_g"
 	}
 	gateTable = append(gateTable, Gate{
-		Name:    fmt.Sprintf("%s%d", name, id),
-		State:   stUndefined,
-		Func:    trfunc,
-		Inputs:  []int{},
-		Outputs: []int{}})
+		Name:  fmt.Sprintf("%s%d", name, id),
+		State: stUndefined,
+		Func:  trfunc})
+	attach(id, inputs, outputs)
 	return id
 }
 
@@ -255,16 +254,10 @@ func newMUX2(a, d0, d1, y int) {
 	t2 := newWire("")
 	t3 := newWire("")
 
-	not := newGate("not", NotFunc)
-	and1 := newGate("and", AndFunc)
-	and2 := newGate("and", AndFunc)
-	or := newGate("or", OrFunc)
-
-	attach(not, []int{a}, []int{t1})
-	attach(and1, []int{d0, t1}, []int{t2})
-	attach(and2, []int{d1, a}, []int{t3})
-
-	attach(or, []int{t2, t3}, []int{y})
+	newGate("not", NotFunc, []int{a}, []int{t1})
+	newGate("and", AndFunc, []int{d0, t1}, []int{t2})
+	newGate("and", AndFunc, []int{d1, a}, []int{t3})
+	newGate("or", OrFunc, []int{t2, t3}, []int{y})
 }
 
 // XOR element: c = a XOR b
@@ -274,45 +267,28 @@ func newXOR(a, b, c int) {
 	t3 := newWire("")
 	t4 := newWire("")
 
-	not1 := newGate("not", NotFunc)
-	not2 := newGate("not", NotFunc)
-
-	and1 := newGate("and", AndFunc)
-	and2 := newGate("and", AndFunc)
-
-	or1 := newGate("or", OrFunc)
-
-	attach(not1, []int{a}, []int{t1})
-	attach(not2, []int{b}, []int{t2})
-
-	attach(and1, []int{b, t1}, []int{t3})
-	attach(and2, []int{a, t2}, []int{t4})
-
-	attach(or1, []int{t3, t4}, []int{c})
+	newGate("not", NotFunc, []int{a}, []int{t1})
+	newGate("not", NotFunc, []int{b}, []int{t2})
+	newGate("and", AndFunc, []int{b, t1}, []int{t3})
+	newGate("and", AndFunc, []int{a, t2}, []int{t4})
+	newGate("or", OrFunc, []int{t3, t4}, []int{c})
 }
 
-// Half summator A+B -> SUM, CARRY
-func newHalfSum(a, b, sum, carry int) {
+// Half adder A+B -> SUM, CARRY
+func newHalfAdder(a, b, sum, carry int) {
 	newXOR(a, b, sum)
-	and := newGate("and", AndFunc)
-	attach(and, []int{a, b}, []int{carry})
+	newGate("and", AndFunc, []int{a, b}, []int{carry})
 }
 
 func newFullAdder(a, b int, ci, sum, co int) {
 	t1 := newWire("")
 	newXOR(a, b, t1)
 	newXOR(ci, t1, sum)
-	and1 := newGate("and", AndFunc)
-
 	t2 := newWire("")
-	attach(and1, []int{a, b}, []int{t2})
-
+	newGate("and", AndFunc, []int{a, b}, []int{t2})
 	t3 := newWire("")
-	and2 := newGate("and", AndFunc)
-	attach(and2, []int{ci, t1}, []int{t3})
-
-	or := newGate("or", OrFunc)
-	attach(or, []int{t2, t3}, []int{co})
+	newGate("and", AndFunc, []int{ci, t1}, []int{t3})
+	newGate("or", OrFunc, []int{t2, t3}, []int{co})
 }
 
 func main() {
